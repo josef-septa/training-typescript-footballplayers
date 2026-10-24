@@ -20,9 +20,15 @@ export default function Home() {
     try {
       const response = await fetch('/api/players');
       const data = await response.json();
-      setPlayers(data);
+      if (response.ok && Array.isArray(data)) {
+        setPlayers(data);
+      } else {
+        console.error('Failed to fetch players:', data);
+        setPlayers([]);
+      }
     } catch (error) {
       console.error('Failed to fetch players', error);
+      setPlayers([]);
     } finally {
       setIsLoading(false);
     }
@@ -37,7 +43,10 @@ export default function Home() {
           body: JSON.stringify(playerData),
         });
         const updated = await response.json();
-        setPlayers(players.map(p => p.id === updated.id ? updated : p));
+        if (!response.ok) {
+          throw new Error(updated.error || 'Failed to update player');
+        }
+        setPlayers(prev => (Array.isArray(prev) ? prev.map(p => p.id === updated.id ? updated : p) : []));
       } else {
         const response = await fetch('/api/players', {
           method: 'POST',
@@ -45,10 +54,14 @@ export default function Home() {
           body: JSON.stringify(playerData),
         });
         const created = await response.json();
-        setPlayers([created, ...players]);
+        if (!response.ok) {
+          throw new Error(created.error || 'Failed to create player');
+        }
+        setPlayers(prev => [created, ...(Array.isArray(prev) ? prev : [])]);
       }
     } catch (error) {
       console.error('Failed to save player', error);
+      alert(error instanceof Error ? error.message : 'Failed to save player');
       throw error;
     }
   };
